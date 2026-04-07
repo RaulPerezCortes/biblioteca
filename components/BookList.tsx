@@ -6,18 +6,23 @@ import { useBooks } from '../lib/useBooks';
 
 import BookItem from './BookItem';
 
+const normalizeText = (text: string) =>
+  text
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+
 export default function BookList() {
 
   const { books, deleteBook, loading } = useBooks();
 
   const [search, setSearch] = useState('');
 
+  const normalizedSearch = normalizeText(search);
+
   const filteredBooks = books.filter(book =>
-
-    book.title.toLowerCase().includes(search.toLowerCase()) ||
-
-    book.author.toLowerCase().includes(search.toLowerCase())
-
+    normalizeText(book.title).includes(normalizedSearch) ||
+    normalizeText(book.author).includes(normalizedSearch)
   );
 
   if (loading) {

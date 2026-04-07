@@ -38,3 +38,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 - TypeScript
 - Tailwind CSS
 - Local Storage for data persistence
+
+## Documentación completa
+
+La documentación detallada del proyecto está disponible en `doc/README.md`.
