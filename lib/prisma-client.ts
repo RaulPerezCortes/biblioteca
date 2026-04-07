@@ -4,7 +4,11 @@ import { PrismaLibSql } from '@prisma/adapter-libsql';
 let prisma: InstanceType<typeof PrismaClient>;
 
 const getDatabaseUrl = () => {
-  return process.env.DATABASE_URL || 'file:./dev.db';
+  const url = process.env.DATABASE_URL;
+  if (!url && process.env.NODE_ENV === 'production') {
+    throw new Error('DATABASE_URL is required in production');
+  }
+  return url || 'file:./dev.db';
 };
 
 if (process.env.NODE_ENV === 'production') {

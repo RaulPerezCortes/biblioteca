@@ -9,25 +9,24 @@ export function useBooks() {
 
   useEffect(() => {
     fetchBooks();
-    initializeDatabase();
   }, []);
-
-  const initializeDatabase = async () => {
-    try {
-      await fetch('/api/init', { method: 'POST' });
-    } catch (error) {
-      console.error('Error initializing database:', error);
-    }
-  };
 
   const fetchBooks = async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/books');
       const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Error fetching books:', data);
+        setBooks([]);
+        return;
+      }
+
       setBooks(data);
     } catch (error) {
       console.error('Error fetching books:', error);
+      setBooks([]);
     } finally {
       setLoading(false);
     }
