@@ -37,15 +37,21 @@ package.json
 .env
 ```
 
-## 3. Tecnologías utilizadas
+## 3. Tecnologías utilizadas y por qué
 
-- **Next.js 16 App Router**: para manejar páginas y rutas del servidor.
-- **TypeScript**: tipado estático que mejora la calidad del código.
-- **Tailwind CSS**: para estilos rápidos y responsivos.
-- **Prisma**: ORM para acceso seguro a la base de datos.
-- **Turso**: base de datos remota SQL compatible con LibSQL.
-- **Vercel**: plataforma de despliegue para frontend y funciones serverless.
-- **GitHub**: control de versiones y conexión al repositorio.
+- **Next.js 16 App Router**: Elegido por su capacidad para renderizar páginas del lado del servidor (SSR) y cliente, APIs serverless integradas, y App Router que simplifica el enrutamiento. Permite una experiencia de desarrollo rápida con TypeScript y optimizaciones automáticas de rendimiento. Se usa porque facilita la construcción de aplicaciones full-stack en un solo framework, reduciendo la complejidad de manejar frontend y backend separados.
+
+- **TypeScript**: Proporciona tipado estático que previene errores en tiempo de desarrollo y mejora la mantenibilidad del código. Se utiliza para asegurar que los datos fluyan correctamente entre componentes y APIs, especialmente importante en una app con base de datos.
+
+- **Tailwind CSS**: Framework de CSS utilitario que permite estilos rápidos y consistentes sin escribir CSS personalizado. Se elige por su velocidad de desarrollo, responsividad integrada y compatibilidad con Next.js, permitiendo un diseño moderno y profesional sin overhead.
+
+- **Prisma**: ORM (Object-Relational Mapping) que genera consultas SQL seguras y tipadas. Se usa porque abstrae la complejidad de SQL, previene inyecciones SQL, y proporciona una API intuitiva para interactuar con la base de datos desde JavaScript/TypeScript.
+
+- **Turso**: Base de datos SQL remota compatible con SQLite (usando LibSQL). Elegida por su simplicidad de configuración, bajo costo, y compatibilidad con Prisma. A diferencia de bases de datos tradicionales, permite despliegues rápidos sin gestión de servidores, ideal para aplicaciones pequeñas como esta biblioteca personal.
+
+- **Vercel**: Plataforma de despliegue que integra perfectamente con Next.js, ofreciendo despliegues automáticos desde GitHub, funciones serverless para APIs, y variables de entorno seguras. Se utiliza porque simplifica el proceso de despliegue, maneja escalabilidad automáticamente, y proporciona dominios gratuitos.
+
+- **GitHub**: Plataforma de control de versiones que permite colaboración y backups seguros del código. Se usa para versionar el proyecto, conectar con Vercel para despliegues automáticos, y mantener un historial de cambios.
 
 ## 4. Cómo se conecta todo
 
@@ -70,53 +76,76 @@ La lógica de datos del cliente vive en `lib/useBooks.ts`:
 
 ### 4.3 Backend y API
 
-Las rutas de la API se definen en `app/api/`:
+Las rutas de la API se definen en `app/api/` usando el sistema de rutas de Next.js App Router. Cada ruta es una función serverless que se ejecuta en Vercel. Estas APIs actúan como intermediario entre el frontend y la base de datos, proporcionando endpoints RESTful para operaciones CRUD (Crear, Leer, Actualizar, Eliminar).
 
 - `app/api/books/route.ts`
-  - `GET /api/books`: devuelve todos los libros
-  - `POST /api/books`: crea un nuevo libro
-- `app/api/books/[id]/route.ts`
-  - `DELETE /api/books/:id`: elimina un libro por su ID
-- `app/api/init/route.ts`
-  - `POST /api/init`: inicializa la base de datos con datos de ejemplo si el conteo es 0
+  - **GET /api/books**: Devuelve una lista JSON de todos los libros en la base de datos. Se utiliza para cargar la colección completa de libros en la página principal. Ordena los libros por fecha de creación descendente para mostrar los más recientes primero.
+  - **POST /api/books**: Recibe datos JSON de un nuevo libro y lo inserta en la base de datos. Se usa cuando el usuario envía el formulario de agregar libro. Valida que los campos requeridos estén presentes antes de guardar.
 
-Estas rutas usan `lib/prisma-client.ts` para acceder a la base de datos.
+- `app/api/books/[id]/route.ts`
+  - **DELETE /api/books/:id**: Elimina el libro con el ID especificado de la base de datos. Se utiliza cuando el usuario hace clic en el botón "Eliminar" de un libro. Incluye manejo de errores si el libro no existe.
+
+- `app/api/init/route.ts`
+  - **POST /api/init**: Verifica si la base de datos está vacía y, si lo está, inserta 50 libros de ejemplo usando datos de un archivo JSON. Se creó inicialmente para poblar la base de datos durante el desarrollo, pero se mantiene por si se necesita reinicializar. En producción, no se llama automáticamente para evitar sobrescribir datos reales.
+
+Estas rutas usan `lib/prisma-client.ts` para acceder a la base de datos de forma segura y tipada. El uso de APIs serverless permite que el backend escale automáticamente sin gestión de servidores.
 
 ## 5. Base de datos y Prisma
 
 ### 5.1 Prisma
 
-El esquema Prisma está en `prisma/schema.prisma` y define el modelo `Book`:
+Prisma es el ORM elegido porque genera código TypeScript seguro que previene errores de SQL y proporciona autocompletado. El esquema en `prisma/schema.prisma` define el modelo `Book` con campos apropiados para una biblioteca:
 
-- `id`: identificador UUID/Texto
-- `title`, `author`, `genre`, `description`
-- `year`: año del libro
-- `createdAt` y `updatedAt`
+- `id`: Identificador único generado automáticamente (UUID en Turso)
+- `title`, `author`, `genre`, `description`: Campos de texto para información del libro
+- `year`: Número entero para el año de publicación
+- `createdAt` y `updatedAt`: Timestamps automáticos para seguimiento de cambios
 
 ### 5.2 Cliente Prisma
 
-`lib/prisma-client.ts` exporta una instancia de Prisma configurada con el adaptador `@prisma/adapter-libsql` y la URL del entorno:
+`lib/prisma-client.ts` configura Prisma con el adaptador LibSQL para Turso. Este archivo es crucial porque:
 
-- En producción usa `process.env.DATABASE_URL`
-- En desarrollo cae a `file:./dev.db` si no existe la variable
+- Crea una instancia singleton de Prisma para evitar conexiones múltiples
+- Usa `DATABASE_URL` del entorno para apuntar a la base de datos correcta
+- En desarrollo, cae a un archivo local si no hay URL configurada
+- Maneja la conexión de forma asíncrona y segura
 
 ### 5.3 Turso
 
-La base de datos remota se configura usando una URL `libsql://...` almacenada en `.env`.
+Turso se elige sobre otras bases de datos por:
 
-Se creó una base de datos Turso remota y se configuró en Vercel como variable de entorno.
+- **Simplicidad**: No requiere configuración de servidores o clusters
+- **Compatibilidad**: Usa LibSQL, un fork de SQLite, compatible con Prisma
+- **Rendimiento**: Optimizado para lecturas/escrituras rápidas
+- **Costo**: Gratuito para uso personal con límites generosos
+- **Escalabilidad**: Maneja múltiples conexiones sin problemas en Vercel
+
+La base de datos se creó remotamente y se conecta vía URL segura almacenada en variables de entorno.
 
 ## 6. Despliegue en Vercel
 
-La app se desplegó en Vercel y se vincula con el repositorio de GitHub. Vercel ejecuta el build de Next.js y deploya tanto la interfaz como las funciones de serverless para las APIs.
+Vercel se utiliza porque ofrece integración perfecta con Next.js, permitiendo despliegues automáticos desde GitHub. Cuando se hace push al repositorio, Vercel:
+
+1. **Construye la aplicación**: Ejecuta `npm run build` que genera páginas estáticas y funciones serverless
+2. **Despliega las APIs**: Convierte las rutas `app/api/` en funciones Lambda serverless
+3. **Sirve el frontend**: Hospeda las páginas React con optimizaciones de rendimiento
+4. **Maneja variables de entorno**: Almacena `DATABASE_URL` de forma segura
 
 ### 6.1 Variables de entorno en Vercel
 
-- `DATABASE_URL`: necesaria para la conexión a Turso en producción
+- `DATABASE_URL`: URL de conexión a Turso, crítica para que las APIs funcionen en producción. Sin ella, las consultas fallan.
 
 ### 6.2 URLs del despliegue
 
 - Producción actual: `https://biblioteca-lime-three.vercel.app`
+- La página `/doc` está disponible en `https://biblioteca-lime-three.vercel.app/doc`
+
+### 6.3 Por qué Vercel
+
+- **Despliegue automático**: Cada push a `main` actualiza la producción
+- **Serverless**: APIs se escalan automáticamente sin gestión
+- **CDN global**: Contenido se sirve desde edge locations cercanas
+- **Integración GitHub**: Vinculación directa con el repositorio
 
 ## 7. Repositorio y GitHub
 
